@@ -1,40 +1,26 @@
-import { Field } from "./types";
+const API_URL = import.meta.env.VITE_API_URL as string;
 
-const API_URL = "https://guv2yhb3e4.execute-api.us-east-1.amazonaws.com";
-
-export async function createForm(payload: {
-  fields: Field[];
-}): Promise<{ form_id?: string; formId?: string }> {
+export async function createForm(payload: any) {
   const res = await fetch(`${API_URL}/forms`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const message = (data?.message as string) || `Request failed (${res.status})`;
-    throw new Error(message);
-  }
-  return data;
+  if (!res.ok) throw new Error("Create form failed");
+  return res.json();
 }
 
-export async function submitForm(
-  formId: string,
-  data: Record<string, string | number>
-): Promise<void> {
+export async function submitForm(formId: string, data: any) {
   const res = await fetch(`${API_URL}/submit/${formId}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data)
   });
-  if (!res.ok) {
-    let message = `Submit failed (${res.status})`;
-    try {
-      const err = await res.json();
-      if (err?.message) message = err.message;
-    } catch {
-      // ignore
-    }
-    throw new Error(message);
-  }
+  if (!res.ok) throw new Error("Submit failed");
+}
+
+export async function getForm(formId: string) {
+  const res = await fetch(`${API_URL}/forms/${formId}`);
+  if (!res.ok) throw new Error("Form not found");
+  return res.json();
 }
