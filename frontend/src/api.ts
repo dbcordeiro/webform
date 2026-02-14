@@ -1,7 +1,17 @@
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
+
+function ensureApiUrl(): string {
+  if (!API_URL) {
+    throw new Error(
+      "API URL is not configured. Set VITE_API_URL in your environment (e.g. Amplify environment variables)."
+    );
+  }
+  return API_URL;
+}
 
 async function createForm(payload: any) {
-  const res = await fetch(`${API_URL}/forms`, {
+  const base = ensureApiUrl();
+  const res = await fetch(`${base}/forms`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -17,7 +27,8 @@ async function createForm(payload: any) {
 }
 
 async function submitForm(formId: string, payload: any) {
-  const res = await fetch(`${API_URL}/submit/${formId}`, {
+  const base = ensureApiUrl();
+  const res = await fetch(`${base}/submit/${formId}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -33,7 +44,8 @@ async function submitForm(formId: string, payload: any) {
 }
 
 async function getForm(formId: string) {
-  const res = await fetch(`${API_URL}/forms/${formId}`);
+  const base = ensureApiUrl();
+  const res = await fetch(`${base}/forms/${formId}`);
 
   if (!res.ok) {
     throw new Error("Form not found");
