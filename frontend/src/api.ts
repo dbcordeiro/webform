@@ -1,12 +1,16 @@
-const API_URL = import.meta.env.VITE_API_URL as string;
+const API_URL = import.meta.env.VITE_API_URL;
 
-export async function createForm(payload: any) {
+export async function createForm(form: any) {
   const res = await fetch(`${API_URL}/forms`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
+    body: JSON.stringify(form)
   });
-  if (!res.ok) throw new Error("Create form failed");
+
+  if (!res.ok) {
+    throw new Error("Failed to create form");
+  }
+
   return res.json();
 }
 
@@ -16,11 +20,8 @@ export async function submitForm(formId: string, data: any) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data)
   });
-  if (!res.ok) throw new Error("Submit failed");
-}
 
-export async function getForm(formId: string) {
-  const res = await fetch(`${API_URL}/forms/${formId}`);
-  if (!res.ok) throw new Error("Form not found");
-  return res.json();
+  if (!res.ok) {
+    throw new Error("Failed to submit form");
+  }
 }

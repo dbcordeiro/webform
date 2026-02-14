@@ -1,21 +1,15 @@
-import { Routes, Route, Navigate } from "react-router-dom";
-import FormBuilderWrapper from "./FormBuilderWrapper";
-import FormRendererPage from "./FormRendererPage";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import FormBuilderPage from "./pages/FormBuilderPage";
+import FormRendererPage from "./pages/FormRendererPage";
 
 export default function App() {
   return (
-    <>
-      <header className="header">
-        <div className="logo">argo</div>
-      </header>
-
-      <main className="container">
-        <Routes>
-          <Route path="/" element={<Navigate to="/create" />} />
-          <Route path="/create" element={<FormBuilderWrapper />} />
-          <Route path="/f/:formId" element={<FormRendererPage />} />
-        </Routes>
-      </main>
-    </>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Navigate to="/builder" />} />
+        <Route path="/builder" element={<FormBuilderPage />} />
+        <Route path="/forms/:id" element={<FormRendererPage />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
