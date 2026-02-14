@@ -9,5 +9,12 @@ export default function FormBuilderPage() {
     navigate(`/forms/${formId}`, { state: { fields } });
   };
 
-  return <FormBuilder onFormCreated={handleFormCreated} />;
+  return (
+    <div className="page-center">
+      <div className="card card--builder">
+        <h1 className="page-title">Create your form here</h1>
+        <FormBuilder onFormCreated={handleFormCreated} />
+      </div>
+    </div>
+  );
 }

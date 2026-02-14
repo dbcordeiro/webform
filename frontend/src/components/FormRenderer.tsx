@@ -44,7 +44,7 @@ export default function FormRenderer({ formId, fields }: Props) {
         const displayValue = raw === undefined ? "" : String(raw);
 
         return (
-          <div key={field.id ?? `${index}-${field.label}`}>
+          <div key={field.id ?? `${index}-${field.label}`} className="form-group">
             <label>{field.label}</label>
             <input
               type={field.type}

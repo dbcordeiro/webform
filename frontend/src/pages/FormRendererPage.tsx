@@ -26,13 +26,15 @@ export default function FormRendererPage() {
     load();
   }, [formId]);
 
-  if (loading) return <p>Loading form…</p>;
-  if (error) return <p style={{ color: "red" }}>{error}</p>;
+  if (loading) return <div className="page-center"><div className="card"><p className="loading-text">Loading form…</p></div></div>;
+  if (error) return <div className="page-center"><div className="card"><p className="error-text">{error}</p></div></div>;
 
   return (
-    <div className="card">
-      <h2>Fill the form</h2>
-      <FormRenderer formId={formId!} fields={fields} />
+    <div className="page-center">
+      <div className="card card--renderer">
+        <h2 className="page-title">Fill the form</h2>
+        <FormRenderer formId={formId!} fields={fields} />
+      </div>
     </div>
   );
 }

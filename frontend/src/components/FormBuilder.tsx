@@ -9,6 +9,7 @@ interface Props {
 }
 
 export default function FormBuilder({ onFormCreated }: Props) {
+  const [formTitle, setFormTitle] = useState("");
   const [fields, setFields] = useState<Field[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,7 +23,7 @@ export default function FormBuilder({ onFormCreated }: Props) {
   const saveForm = async () => {
     setError(null);
     try {
-      const data = await createForm({ fields });
+      const data = await createForm({ title: formTitle || "Untitled form", fields });
       const formId = data.form_id ?? data.formId;
       if (!formId) {
         setError("Invalid response: missing form id");
@@ -35,7 +36,17 @@ export default function FormBuilder({ onFormCreated }: Props) {
   };
 
   return (
-    <div>
+    <div className="form-builder">
+      <div className="form-group">
+        <label htmlFor="form-title">Form title</label>
+        <input
+          id="form-title"
+          type="text"
+          placeholder="e.g. Contact form"
+          value={formTitle}
+          onChange={(e) => setFormTitle(e.target.value)}
+        />
+      </div>
       {fields.map((field, index) => (
         <div className="form-group" key={field.id}>
           <label>Field label</label>
