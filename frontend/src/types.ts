@@ -1,5 +1,12 @@
-export interface Field {
+export interface FormField {
   id: string;
   label: string;
-  type: "text" | "number" | "date";
+  type: "text" | "email" | "number" | "textarea";
+  required: boolean;
+}
+
+export interface FormDefinition {
+  id: string;
+  title: string;
+  fields: FormField[];
 }
