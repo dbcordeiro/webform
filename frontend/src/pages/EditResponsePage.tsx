@@ -20,13 +20,25 @@ export default function EditResponsePage() {
       setLoading(false);
       return;
     }
-    Promise.all([getForm(formId), getResponse(formId, responseId, token)])
-      .then(([formData, responseData]) => {
+    (async () => {
+      try {
+        const formData = await getForm(formId);
         setFields(formData.fields ?? []);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Form not found.");
+        setLoading(false);
+        return;
+      }
+      try {
+        const responseData = await getResponse(formId, responseId, token);
         setInitialValues((responseData.answers as Record<string, string | number>) ?? {});
-      })
-      .catch((err) => setError(err instanceof Error ? err.message : "Load failed"))
-      .finally(() => setLoading(false));
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Could not load your response. Check that the link and token are correct.");
+        setLoading(false);
+        return;
+      }
+      setLoading(false);
+    })();
   }, [formId, responseId, token]);
 
   if (loading) return <div className="page-center"><div className="card"><p className="loading-text">Loading…</p></div></div>;

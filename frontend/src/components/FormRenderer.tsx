@@ -157,7 +157,7 @@ export default function FormRenderer({ formId, fields, initialValues, responseId
       {error && <p className="form-error">{error}</p>}
       {success && (
         <>
-          <p className="form-success">{isEditMode ? "Response updated." : "Submitted successfully."}</p>
+          <p className="form-success">{isEditMode ? "Edited successfully." : "Submitted successfully."}</p>
           {editLink && (
             <p className="edit-link-hint">
               Save this link to edit your response later:{" "}

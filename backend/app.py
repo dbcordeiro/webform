@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import uuid
 from urllib.parse import parse_qs
 import boto3
@@ -85,6 +86,23 @@ def _get_query_params(event: dict) -> dict:
         return {}
 
 
+# Match /forms/{formId}/responses/{responseId} or /response/ (singular), optional trailing slash
+_RESPONSE_PATH = re.compile(r"^/forms/([^/]+)/(?:responses?)/([^/]+)/?$")
+
+
+def _parse_response_route(event: dict, path: str):
+    """If this is GET/PUT forms/.../responses/... or .../response/..., return (form_id, response_id). Else (None, None)."""
+    path_params = event.get("pathParameters") or {}
+    form_id = path_params.get("formId") or path_params.get("form_id")
+    response_id = path_params.get("responseId") or path_params.get("response_id")
+    if form_id and response_id:
+        return form_id, response_id
+    m = _RESPONSE_PATH.match(path)
+    if m:
+        return m.group(1), m.group(2)
+    return None, None
+
+
 def lambda_handler(event, context) -> dict:
     try:
         def err(code: int, error: str, message: str):
@@ -128,6 +146,46 @@ def lambda_handler(event, context) -> dict:
                     "message": str(db_e)[:500]
                 })
             return response(201, {"form_id": form_id})
+
+        # GET/PUT /forms/{formId}/responses/{responseId} – handle before single-form GET so path is matched first
+        resp_form_id, resp_response_id = _parse_response_route(event, path)
+        if resp_form_id and resp_response_id and method == "GET":
+            form_id, response_id = resp_form_id, resp_response_id
+            qs = _get_query_params(event)
+            token = (qs.get("token") or "").strip()
+            if not token:
+                return response(403, {"error": "Edit token required"})
+            res = responses_table.get_item(Key={"form_id": form_id, "response_id": response_id})
+            item = res.get("Item")
+            if not item or item.get("edit_token") != token:
+                return response(404, {"error": "Response not found or invalid token"})
+            return response(200, {"form_id": form_id, "answers": item["answers"], "response_id": response_id})
+
+        if resp_form_id and resp_response_id and method == "PUT":
+            form_id, response_id = resp_form_id, resp_response_id
+            try:
+                body = json.loads(body_str) if body_str else {}
+            except json.JSONDecodeError:
+                return response(400, {"error": "Invalid JSON"})
+            token = (body.get("edit_token") or body.get("token") or "").strip()
+            answers = body.get("answers") if isinstance(body.get("answers"), dict) else body
+            if not isinstance(answers, dict):
+                answers = {}
+            if not token:
+                return response(403, {"error": "Edit token required"})
+            res = responses_table.get_item(Key={"form_id": form_id, "response_id": response_id})
+            item = res.get("Item")
+            if not item or item.get("edit_token") != token:
+                return response(404, {"error": "Response not found or invalid token"})
+            try:
+                responses_table.update_item(
+                    Key={"form_id": form_id, "response_id": response_id},
+                    UpdateExpression="SET answers = :a",
+                    ExpressionAttributeValues={":a": answers}
+                )
+            except Exception as db_e:
+                return response(200, {"ok": False, "error": type(db_e).__name__, "message": str(db_e)[:500]})
+            return response(200, {"status": "updated", "response_id": response_id})
 
         if method == "GET" and path.startswith("/forms/") and path != "/forms":
             parts = path.rstrip("/").split("/")
@@ -184,59 +242,6 @@ def lambda_handler(event, context) -> dict:
             except Exception as db_e:
                 return response(200, {"ok": False, "error": type(db_e).__name__, "message": str(db_e)[:500]})
             return response(201, {"status": "submitted", "response_id": response_id, "edit_token": edit_token})
-
-        # GET /forms/{formId}/responses/{responseId} – use pathParams (HTTP API) or path
-        path_params = event.get("pathParameters") or {}
-        _form_id = path_params.get("formId") or path_params.get("form_id")
-        _response_id = path_params.get("responseId") or path_params.get("response_id")
-        if method == "GET" and (_form_id and _response_id or (path.startswith("/forms/") and ("/responses/" in path or "/response/" in path))):
-            if not _form_id or not _response_id:
-                parts = [p for p in path.split("/") if p]
-                if len(parts) != 4 or parts[0] != "forms" or parts[2] not in ("responses", "response"):
-                    return response(404, {"error": "Not found"})
-                _form_id, _response_id = parts[1], parts[3]
-            form_id, response_id = _form_id, _response_id
-            qs = _get_query_params(event)
-            token = (qs.get("token") or "").strip()
-            if not token:
-                return response(403, {"error": "Edit token required"})
-            res = responses_table.get_item(Key={"form_id": form_id, "response_id": response_id})
-            item = res.get("Item")
-            if not item or item.get("edit_token") != token:
-                return response(404, {"error": "Response not found or invalid token"})
-            return response(200, {"form_id": form_id, "answers": item["answers"], "response_id": response_id})
-
-        # PUT /forms/{formId}/responses/{responseId}
-        if method == "PUT" and (_form_id and _response_id or (path.startswith("/forms/") and ("/responses/" in path or "/response/" in path))):
-            if not _form_id or not _response_id:
-                parts = [p for p in path.split("/") if p]
-                if len(parts) != 4 or parts[0] != "forms" or parts[2] not in ("responses", "response"):
-                    return response(404, {"error": "Not found"})
-                _form_id, _response_id = parts[1], parts[3]
-            form_id, response_id = _form_id, _response_id
-            try:
-                body = json.loads(body_str) if body_str else {}
-            except json.JSONDecodeError:
-                return response(400, {"error": "Invalid JSON"})
-            token = (body.get("edit_token") or body.get("token") or "").strip()
-            answers = body.get("answers") if isinstance(body.get("answers"), dict) else body
-            if not isinstance(answers, dict):
-                answers = {}
-            if not token:
-                return response(403, {"error": "Edit token required"})
-            res = responses_table.get_item(Key={"form_id": form_id, "response_id": response_id})
-            item = res.get("Item")
-            if not item or item.get("edit_token") != token:
-                return response(404, {"error": "Response not found or invalid token"})
-            try:
-                responses_table.update_item(
-                    Key={"form_id": form_id, "response_id": response_id},
-                    UpdateExpression="SET answers = :a",
-                    ExpressionAttributeValues={":a": answers}
-                )
-            except Exception as db_e:
-                return response(200, {"ok": False, "error": type(db_e).__name__, "message": str(db_e)[:500]})
-            return response(200, {"status": "updated", "response_id": response_id})
 
         return response(404, {"error": "Not found", "path": path, "method": method})
 
