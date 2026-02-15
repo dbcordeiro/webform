@@ -7,9 +7,10 @@ async function getErrorMessage(res: Response, fallback: string): Promise<string>
     const text = await res.text();
     if (!text) return `${fallback} (${res.status})`;
     const data = JSON.parse(text);
-    if (data?.message) return data.message;
-    if (data?.error) return typeof data.error === "string" ? data.error : JSON.stringify(data.error);
-    return `${fallback}: ${text}`;
+    const main = data?.message ?? (typeof data?.error === "string" ? data.error : data?.error ? JSON.stringify(data.error) : null);
+    const msg = main ?? `${fallback}: ${text}`;
+    if (data?.path != null) return `${msg} (path: ${data.path})`;
+    return msg;
   } catch {
     return `${fallback} (${res.status})`;
   }

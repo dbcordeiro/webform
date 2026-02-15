@@ -185,11 +185,17 @@ def lambda_handler(event, context) -> dict:
                 return response(200, {"ok": False, "error": type(db_e).__name__, "message": str(db_e)[:500]})
             return response(201, {"status": "submitted", "response_id": response_id, "edit_token": edit_token})
 
-        if method == "GET" and path.startswith("/forms/") and ("/responses/" in path or "/response/" in path):
-            parts = [p for p in path.split("/") if p]
-            if len(parts) != 4 or parts[0] != "forms" or parts[2] not in ("responses", "response"):
-                return response(404, {"error": "Not found"})
-            form_id, response_id = parts[1], parts[3]
+        # GET /forms/{formId}/responses/{responseId} – use pathParams (HTTP API) or path
+        path_params = event.get("pathParameters") or {}
+        _form_id = path_params.get("formId") or path_params.get("form_id")
+        _response_id = path_params.get("responseId") or path_params.get("response_id")
+        if method == "GET" and (_form_id and _response_id or (path.startswith("/forms/") and ("/responses/" in path or "/response/" in path))):
+            if not _form_id or not _response_id:
+                parts = [p for p in path.split("/") if p]
+                if len(parts) != 4 or parts[0] != "forms" or parts[2] not in ("responses", "response"):
+                    return response(404, {"error": "Not found"})
+                _form_id, _response_id = parts[1], parts[3]
+            form_id, response_id = _form_id, _response_id
             qs = _get_query_params(event)
             token = (qs.get("token") or "").strip()
             if not token:
@@ -200,11 +206,14 @@ def lambda_handler(event, context) -> dict:
                 return response(404, {"error": "Response not found or invalid token"})
             return response(200, {"form_id": form_id, "answers": item["answers"], "response_id": response_id})
 
-        if method == "PUT" and path.startswith("/forms/") and ("/responses/" in path or "/response/" in path):
-            parts = [p for p in path.split("/") if p]
-            if len(parts) != 4 or parts[0] != "forms" or parts[2] not in ("responses", "response"):
-                return response(404, {"error": "Not found"})
-            form_id, response_id = parts[1], parts[3]
+        # PUT /forms/{formId}/responses/{responseId}
+        if method == "PUT" and (_form_id and _response_id or (path.startswith("/forms/") and ("/responses/" in path or "/response/" in path))):
+            if not _form_id or not _response_id:
+                parts = [p for p in path.split("/") if p]
+                if len(parts) != 4 or parts[0] != "forms" or parts[2] not in ("responses", "response"):
+                    return response(404, {"error": "Not found"})
+                _form_id, _response_id = parts[1], parts[3]
+            form_id, response_id = _form_id, _response_id
             try:
                 body = json.loads(body_str) if body_str else {}
             except json.JSONDecodeError:
