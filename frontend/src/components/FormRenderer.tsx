@@ -11,21 +11,72 @@ function getValueKey(field: Field, index: number): string {
   return field.id ?? `${index}-${field.label}`;
 }
 
+type FieldType = Field["type"];
+
+function validateFieldValue(type: FieldType, value: string): string | null {
+  const trimmed = value.trim();
+  if (trimmed === "") return null;
+
+  switch (type) {
+    case "number": {
+      const n = Number(trimmed);
+      if (Number.isNaN(n)) return "Must be a valid number.";
+      return null;
+    }
+    case "date": {
+      const d = new Date(trimmed);
+      if (Number.isNaN(d.getTime())) return "Must be a valid date (e.g. YYYY-MM-DD).";
+      return null;
+    }
+    case "email": {
+      const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRe.test(trimmed)) return "Must be a valid email address.";
+      return null;
+    }
+    case "text":
+    case "textarea":
+    default:
+      return null;
+  }
+}
+
 export default function FormRenderer({ formId, fields }: Props) {
-  const [values, setValues] = useState<Record<string, string | number>>({});
+  const [values, setValues] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  const handleBlur = (valueKey: string, type: FieldType, value: string) => {
+    const msg = validateFieldValue(type, value);
+    setErrors((prev) => (msg ? { ...prev, [valueKey]: msg } : { ...prev, [valueKey]: "" }));
+  };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
     setSuccess(false);
 
+    const newErrors: Record<string, string> = {};
+    fields.forEach((f, i) => {
+      const key = getValueKey(f, i);
+      const raw = values[key] ?? "";
+      const msg = validateFieldValue(f.type, raw);
+      if (msg) newErrors[key] = msg;
+    });
+    setErrors(newErrors);
+
+    if (Object.values(newErrors).some(Boolean)) return;
+
     const payload: Record<string, string | number> = {};
     fields.forEach((f, i) => {
       const key = getValueKey(f, i);
-      const v = values[key];
-      if (v !== undefined && v !== "") payload[f.label] = v;
+      const raw = (values[key] ?? "").trim();
+      if (raw === "") return;
+      if (f.type === "number") {
+        payload[f.label] = Number(raw);
+      } else {
+        payload[f.label] = raw;
+      }
     });
 
     try {
@@ -40,32 +91,40 @@ export default function FormRenderer({ formId, fields }: Props) {
     <form onSubmit={handleSubmit}>
       {fields.map((field, index) => {
         const valueKey = getValueKey(field, index);
-        const raw = values[valueKey];
-        const displayValue = raw === undefined ? "" : String(raw);
+        const displayValue = values[valueKey] ?? "";
+        const fieldError = errors[valueKey];
 
         return (
           <div key={field.id ?? `${index}-${field.label}`} className="form-group">
-            <label>{field.label}</label>
-            <input
-              type={field.type}
-              required
-              value={displayValue}
-              onChange={(e) =>
-                setValues({
-                  ...values,
-                  [valueKey]:
-                    field.type === "number"
-                      ? Number(e.target.value)
-                      : e.target.value
-                })
-              }
-            />
+            <label htmlFor={valueKey}>{field.label}</label>
+            {field.type === "textarea" ? (
+              <textarea
+                id={valueKey}
+                value={displayValue}
+                onChange={(e) => setValues({ ...values, [valueKey]: e.target.value })}
+                onBlur={(e) => handleBlur(valueKey, field.type, e.target.value)}
+                required
+                rows={3}
+                className={fieldError ? "input-error" : ""}
+              />
+            ) : (
+              <input
+                id={valueKey}
+                type={field.type === "email" ? "email" : field.type}
+                required
+                value={displayValue}
+                onChange={(e) => setValues({ ...values, [valueKey]: e.target.value })}
+                onBlur={(e) => handleBlur(valueKey, field.type, e.target.value)}
+                className={fieldError ? "input-error" : ""}
+              />
+            )}
+            {fieldError && <p className="field-error">{fieldError}</p>}
           </div>
         );
       })}
 
-      {error && <p style={{ color: "red" }}>{error}</p>}
-      {success && <p style={{ color: "green" }}>Submitted successfully.</p>}
+      {error && <p className="form-error">{error}</p>}
+      {success && <p className="form-success">Submitted successfully.</p>}
 
       <button type="submit">Submit</button>
     </form>

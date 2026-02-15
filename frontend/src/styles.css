@@ -154,6 +154,38 @@ input::placeholder {
   color: var(--muted);
 }
 
+input.input-error,
+textarea.input-error {
+  border-color: #b91c1c;
+  box-shadow: 0 0 0 2px rgba(185, 28, 28, 0.15);
+}
+
+textarea {
+  width: 100%;
+  padding: 0.65rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  font-size: 0.95rem;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.field-error {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+  color: #b91c1c;
+}
+
+.form-error {
+  color: #b91c1c;
+  margin-bottom: 0.5rem;
+}
+
+.form-success {
+  color: #15803d;
+  margin-bottom: 0.5rem;
+}
+
 /* Buttons */
 button {
   background: var(--primary);
