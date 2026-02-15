@@ -5,7 +5,7 @@ import boto3
 
 # Table names from env (validated in handler to avoid crash at import)
 FORMS_TABLE_NAME = os.environ.get("FORMS_TABLE")
-RESPONSES_TABLE_NAME = os.environ.get("RESPONSES_TABLE")
+RESPONSES_TABLE_NAME = os.environ.get("RESPONSE_TABLE")
 
 def _headers():
     return {
@@ -126,21 +126,109 @@ def lambda_handler(event, context) -> dict:
             )
             return response(201, {"status": "submitted"})
 
-        if method == "GET" and path.startswith("/forms/"):
+        if method == "GET" and path.startswith("/forms/") and path != "/forms":
+            parts = path.rstrip("/").split("/")
+            form_id = parts[-1]
+            if len(parts) == 3 and parts[1] == "forms":
+                res = forms_table.get_item(Key={"form_id": form_id})
+                item = res.get("Item")
+                if not item:
+                    return response(404, {"error": "Form not found"})
+                return response(200, {
+                    "form_id": item["form_id"],
+                    "title": item.get("title", "Untitled"),
+                    "fields": item["fields"]
+                })
+
+        if method == "PUT" and path.startswith("/forms/") and path != "/forms":
+            parts = path.rstrip("/").split("/")
+            if len(parts) != 3 or parts[1] != "forms":
+                return response(404, {"error": "Not found"})
+            form_id = parts[-1]
+            try:
+                body = json.loads(body_str) if body_str else {}
+            except json.JSONDecodeError:
+                return response(400, {"error": "Invalid JSON"})
+            title = (body.get("title") or "Untitled form") if isinstance(body, dict) else "Untitled form"
+            fields = body.get("fields") if isinstance(body, dict) else []
+            if not isinstance(fields, list):
+                fields = []
+            try:
+                forms_table.update_item(
+                    Key={"form_id": form_id},
+                    UpdateExpression="SET #title = :t, #fields = :f",
+                    ExpressionAttributeNames={"#title": "title", "#fields": "fields"},
+                    ExpressionAttributeValues={":t": title, ":f": fields}
+                )
+            except Exception as db_e:
+                return response(200, {"ok": False, "error": type(db_e).__name__, "message": str(db_e)[:500]})
+            return response(200, {"form_id": form_id})
+
+        if method == "POST" and path.startswith("/submit/"):
             form_id = path.rstrip("/").split("/")[-1]
+            body = json.loads(body_str) if body_str else {}
+            response_id = str(uuid.uuid4())
+            edit_token = str(uuid.uuid4())
+            try:
+                responses_table.put_item(
+                    Item={
+                        "form_id": form_id,
+                        "response_id": response_id,
+                        "edit_token": edit_token,
+                        "answers": body
+                    }
+                )
+            except Exception as db_e:
+                return response(200, {"ok": False, "error": type(db_e).__name__, "message": str(db_e)[:500]})
+            return response(201, {"status": "submitted", "response_id": response_id, "edit_token": edit_token})
 
-            res = forms_table.get_item(Key={"form_id": form_id})
+        if method == "GET" and path.startswith("/forms/") and "/responses/" in path:
+            parts = [p for p in path.split("/") if p]
+            if len(parts) != 4 or parts[0] != "forms" or parts[2] != "responses":
+                return response(404, {"error": "Not found"})
+            form_id, response_id = parts[1], parts[3]
+            qs = event.get("queryStringParameters") or event.get("queryParameters") or {}
+            token = (qs.get("token") or "").strip()
+            if not token:
+                return response(403, {"error": "Edit token required"})
+            res = responses_table.get_item(Key={"form_id": form_id, "response_id": response_id})
             item = res.get("Item")
+            if not item or item.get("edit_token") != token:
+                return response(404, {"error": "Response not found or invalid token"})
+            return response(200, {"form_id": form_id, "answers": item["answers"], "response_id": response_id})
 
-            if not item:
-                return response(404, {"error": "Form not found"})
-
-            return response(200, {
-                "form_id": item["form_id"],
-                "fields": item["fields"]
-            })
-
-        return response(404, {"error": "Not found"})
+        if method == "PUT" and path.startswith("/forms/") and "/responses/" in path:
+            parts = [p for p in path.split("/") if p]
+            if len(parts) != 4 or parts[0] != "forms" or parts[2] != "responses":
+                return response(404, {"error": "Not found"})
+            form_id, response_id = parts[1], parts[3]
+            try:
+                body = json.loads(body_str) if body_str else {}
+            except json.JSONDecodeError:
+                return response(400, {"error": "Invalid JSON"})
+            token = (body.get("edit_token") or body.get("token") or "").strip()
+            answers = body.get("answers") if isinstance(body.get("answers"), dict) else body
+            if not isinstance(answers, dict):
+                answers = {}
+            if not token:
+                return response(403, {"error": "Edit token required"})
+            res = responses_table.get_item(Key={"form_id": form_id, "response_id": response_id})
+            item = res.get("Item")
+            if not item or item.get("edit_token") != token:
+                return response(404, {"error": "Response not found or invalid token"})
+            try:
+                responses_table.update_item(
+                    Key={"form_id": form_id, "response_id": response_id},
+                    UpdateExpression="SET answers = :a",
+                    ExpressionAttributeValues={":a": answers}
+                )
+            except Exception as db_e:
+                return response(200, {"ok": False, "error": type(db_e).__name__, "message": str(db_e)[:500]})
+            return response(200, {"status": "updated", "response_id": response_id})
+</think>
+Checking responses table structure: it may use only `form_id` as the partition key. Inspecting the backend's response handling:
+<｜tool▁calls▁begin｜><｜tool▁call▁begin｜>
+Read
 
     except Exception as e:
         # Return 200 so API Gateway doesn't replace body with generic "Internal Server Error"

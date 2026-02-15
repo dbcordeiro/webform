@@ -1,35 +1,57 @@
-import { useState } from "react";
-import { createForm } from "../api";
+import { useState, useEffect } from "react";
+import { createForm, updateForm } from "../api";
 import { Field } from "../types";
 
 type FieldType = Field["type"];
 
 interface Props {
   onFormCreated: (formId: string, fields: Field[]) => void;
+  /** Edit mode: existing form id and initial data */
+  formId?: string;
+  initialTitle?: string;
+  initialFields?: Field[];
+  onFormUpdated?: (formId: string) => void;
 }
 
-export default function FormBuilder({ onFormCreated }: Props) {
-  const [formTitle, setFormTitle] = useState("");
-  const [fields, setFields] = useState<Field[]>([]);
+export default function FormBuilder({ onFormCreated, formId, initialTitle = "", initialFields = [], onFormUpdated }: Props) {
+  const [formTitle, setFormTitle] = useState(initialTitle);
+  const [fields, setFields] = useState<Field[]>(initialFields.length ? initialFields : []);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (initialTitle) setFormTitle(initialTitle);
+    if (initialFields.length) setFields(initialFields);
+  }, [initialTitle, initialFields]);
+
+  const MAX_FIELDS = 50;
+
   const addField = () => {
+    if (fields.length >= MAX_FIELDS) return;
     setFields([
       ...fields,
       { id: crypto.randomUUID(), label: "", type: "text" }
     ]);
   };
 
+  const removeField = (index: number) => {
+    setFields(fields.filter((_, i) => i !== index));
+  };
+
   const saveForm = async () => {
     setError(null);
     try {
-      const data = await createForm({ title: formTitle || "Untitled form", fields });
-      const formId = data.form_id ?? data.formId;
-      if (!formId) {
-        setError("Invalid response: missing form id");
-        return;
+      if (formId && onFormUpdated) {
+        await updateForm(formId, { title: formTitle || "Untitled form", fields });
+        onFormUpdated(formId);
+      } else {
+        const data = await createForm({ title: formTitle || "Untitled form", fields });
+        const id = data.form_id ?? data.formId;
+        if (!id) {
+          setError("Invalid response: missing form id");
+          return;
+        }
+        onFormCreated(id, fields);
       }
-      onFormCreated(formId, fields);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Save failed");
     }
@@ -48,46 +70,58 @@ export default function FormBuilder({ onFormCreated }: Props) {
         />
       </div>
       {fields.map((field, index) => (
-        <div className="form-group" key={field.id}>
+        <div className="form-group form-builder-field" key={field.id}>
           <label>Field label</label>
-
-          <input
-            type="text"
-            placeholder="Label"
-            value={field.label}
-            onChange={(e) => {
-              const updated = [...fields];
-              updated[index] = { ...updated[index], label: e.target.value };
-              setFields(updated);
-            }}
-          />
-
-          <select
-            value={field.type}
-            onChange={(e) => {
-              const updated = [...fields];
-              updated[index] = {
-                ...updated[index],
-                type: e.target.value as FieldType
-              };
-              setFields(updated);
-            }}
-          >
-            <option value="text">Text</option>
-            <option value="number">Number</option>
-            <option value="date">Date</option>
-          </select>
+          <div className="field-row">
+            <input
+              type="text"
+              placeholder="Label"
+              value={field.label}
+              onChange={(e) => {
+                const updated = [...fields];
+                updated[index] = { ...updated[index], label: e.target.value };
+                setFields(updated);
+              }}
+            />
+            <select
+              value={field.type}
+              onChange={(e) => {
+                const updated = [...fields];
+                updated[index] = {
+                  ...updated[index],
+                  type: e.target.value as FieldType
+                };
+                setFields(updated);
+              }}
+            >
+              <option value="text">Text</option>
+              <option value="number">Number</option>
+              <option value="date">Date</option>
+              <option value="email">Email</option>
+              <option value="textarea">Text area</option>
+            </select>
+            <button
+              type="button"
+              className="btn-remove"
+              onClick={() => removeField(index)}
+              title="Remove field"
+              aria-label="Remove field"
+            >
+              ×
+            </button>
+          </div>
         </div>
       ))}
 
-      {error && <p style={{ color: "red" }}>{error}</p>}
+      {error && <p className="form-error">{error}</p>}
 
-      <button className="secondary" onClick={addField}>
+      {fields.length >= MAX_FIELDS && <p className="field-hint">Maximum {MAX_FIELDS} fields.</p>}
+      <button className="secondary" onClick={addField} disabled={fields.length >= MAX_FIELDS}>
         Add field
       </button>
 
       <button onClick={saveForm} disabled={fields.length === 0}>
-        Save form
+        {formId && onFormUpdated ? "Update form" : "Save form"}
       </button>
     </div>
   );

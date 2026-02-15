@@ -186,6 +186,81 @@ textarea {
   margin-bottom: 0.5rem;
 }
 
+.form-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.form-page-header .page-title {
+  margin: 0;
+}
+
+.link-edit-form {
+  font-size: 0.9rem;
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.link-edit-form:hover {
+  text-decoration: underline;
+}
+
+.edit-link-hint {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin: 0.5rem 0;
+  word-break: break-all;
+}
+
+.edit-link-hint a {
+  color: var(--primary);
+}
+
+.field-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.field-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.field-row select {
+  width: auto;
+  min-width: 100px;
+}
+
+.btn-remove {
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border-radius: 8px;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 1.25rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-remove:hover {
+  background: #fee2e2;
+}
+
+.field-hint {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin: 0.25rem 0;
+}
+
 /* Buttons */
 button {
   background: var(--primary);

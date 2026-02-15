@@ -1,29 +1,26 @@
 import { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { getForm } from "../api";
+import FormBuilder from "../components/FormBuilder";
 import { Field } from "../types";
-import FormRenderer from "../components/FormRenderer";
-export default function FormRendererPage() {
+
+export default function EditFormPage() {
   const { id: formId } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const [title, setTitle] = useState("");
   const [fields, setFields] = useState<Field[]>([]);
-  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!formId) return;
-
-    const load = async () => {
-      try {
-        const data = await getForm(formId);
+    getForm(formId)
+      .then((data) => {
+        setTitle(data.title ?? "");
         setFields(data.fields ?? []);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load form");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    load();
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load form"))
+      .finally(() => setLoading(false));
   }, [formId]);
 
   if (loading) return <div className="page-center"><div className="card"><p className="loading-text">Loading form…</p></div></div>;
@@ -32,12 +29,15 @@ export default function FormRendererPage() {
 
   return (
     <div className="page-center">
-      <div className="card card--renderer">
-        <div className="form-page-header">
-          <h2 className="page-title">Fill the form</h2>
-          <Link to={`/builder/edit/${formId}`} className="link-edit-form">Edit form</Link>
-        </div>
-        <FormRenderer formId={formId} fields={fields} />
+      <div className="card card--builder">
+        <h1 className="page-title">Edit your form</h1>
+        <FormBuilder
+          formId={formId}
+          initialTitle={title}
+          initialFields={fields}
+          onFormUpdated={() => navigate(`/forms/${formId}`)}
+          onFormCreated={() => {}}
+        />
       </div>
     </div>
   );

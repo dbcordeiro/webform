@@ -2,6 +2,8 @@ import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-
 import Layout from "./components/Layout";
 import FormBuilderPage from "./pages/FormBuilderPage";
 import FormRendererPage from "./pages/FormRendererPage";
+import EditFormPage from "./pages/EditFormPage";
+import EditResponsePage from "./pages/EditResponsePage";
 
 function ShortFormRedirect() {
   const { id } = useParams<{ id: string }>();
@@ -15,8 +17,10 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Navigate to="/builder" />} />
           <Route path="/builder" element={<FormBuilderPage />} />
+          <Route path="/builder/edit/:id" element={<EditFormPage />} />
           <Route path="/f/:id" element={<ShortFormRedirect />} />
           <Route path="/forms/:id" element={<FormRendererPage />} />
+          <Route path="/forms/:id/response/:responseId/edit" element={<EditResponsePage />} />
         </Routes>
       </Layout>
     </BrowserRouter>

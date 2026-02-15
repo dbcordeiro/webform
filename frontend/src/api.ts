@@ -73,4 +73,48 @@ async function getForm(formId: string) {
   return res.json();
 }
 
-export { createForm, submitForm, getForm };
+async function updateForm(formId: string, payload: { title?: string; fields: any[] }) {
+  const base = ensureApiUrl();
+  const res = await fetch(`${base}/forms/${formId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  if (!res.ok) {
+    const msg = await getErrorMessage(res, "Failed to update form");
+    throw new Error(msg);
+  }
+
+  return res.json();
+}
+
+async function getResponse(formId: string, responseId: string, editToken: string) {
+  const base = ensureApiUrl();
+  const res = await fetch(`${base}/forms/${formId}/responses/${responseId}?token=${encodeURIComponent(editToken)}`);
+
+  if (!res.ok) {
+    const msg = await getErrorMessage(res, "Failed to load response");
+    throw new Error(msg);
+  }
+
+  return res.json();
+}
+
+async function updateResponse(formId: string, responseId: string, editToken: string, answers: Record<string, string | number>) {
+  const base = ensureApiUrl();
+  const res = await fetch(`${base}/forms/${formId}/responses/${responseId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ edit_token: editToken, answers })
+  });
+
+  if (!res.ok) {
+    const msg = await getErrorMessage(res, "Failed to update response");
+    throw new Error(msg);
+  }
+
+  return res.json();
+}
+
+export { createForm, submitForm, getForm, updateForm, getResponse, updateResponse };

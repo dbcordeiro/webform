@@ -1,10 +1,15 @@
-import { useState, FormEvent } from "react";
-import { submitForm } from "../api";
+import { useState, FormEvent, useEffect } from "react";
+import { submitForm, updateResponse } from "../api";
 import { Field } from "../types";
 
 interface Props {
   formId: string;
   fields: Field[];
+  /** Prefill for edit-response mode; keys are field labels */
+  initialValues?: Record<string, string | number>;
+  /** When set, submit updates this response instead of creating one */
+  responseId?: string;
+  editToken?: string;
 }
 
 function getValueKey(field: Field, index: number): string {
@@ -35,16 +40,32 @@ function validateFieldValue(type: FieldType, value: string): string | null {
     }
     case "text":
     case "textarea":
+      if (!/^[a-zA-Z]/.test(trimmed)) return "Must start with a letter.";
+      return null;
     default:
       return null;
   }
 }
 
-export default function FormRenderer({ formId, fields }: Props) {
+export default function FormRenderer({ formId, fields, initialValues, responseId, editToken }: Props) {
   const [values, setValues] = useState<Record<string, string>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [editLink, setEditLink] = useState<string | null>(null);
+
+  const isEditMode = Boolean(responseId && editToken);
+
+  useEffect(() => {
+    if (!initialValues || !fields.length) return;
+    const next: Record<string, string> = {};
+    fields.forEach((f, i) => {
+      const key = getValueKey(f, i);
+      const v = initialValues[f.label];
+      if (v !== undefined && v !== null) next[key] = String(v);
+    });
+    setValues((prev) => ({ ...prev, ...next }));
+  }, [initialValues, fields]);
 
   const handleBlur = (valueKey: string, type: FieldType, value: string) => {
     const msg = validateFieldValue(type, value);
@@ -80,8 +101,18 @@ export default function FormRenderer({ formId, fields }: Props) {
     });
 
     try {
-      await submitForm(formId, payload);
-      setSuccess(true);
+      if (isEditMode && responseId && editToken) {
+        await updateResponse(formId, responseId, editToken, payload);
+        setSuccess(true);
+        setEditLink(null);
+      } else {
+        const data = await submitForm(formId, payload);
+        setSuccess(true);
+        if (data?.response_id && data?.edit_token) {
+          const base = window.location.origin;
+          setEditLink(`${base}/forms/${formId}/response/${data.response_id}/edit?token=${encodeURIComponent(data.edit_token)}`);
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Submit failed");
     }
@@ -124,9 +155,19 @@ export default function FormRenderer({ formId, fields }: Props) {
       })}
 
       {error && <p className="form-error">{error}</p>}
-      {success && <p className="form-success">Submitted successfully.</p>}
+      {success && (
+        <>
+          <p className="form-success">{isEditMode ? "Response updated." : "Submitted successfully."}</p>
+          {editLink && (
+            <p className="edit-link-hint">
+              Save this link to edit your response later:{" "}
+              <a href={editLink} target="_blank" rel="noopener noreferrer">{editLink}</a>
+            </p>
+          )}
+        </>
+      )}
 
-      <button type="submit">Submit</button>
+      <button type="submit">{isEditMode ? "Update response" : "Submit"}</button>
     </form>
   );
 }
