@@ -45,9 +45,22 @@ export default function FormBuilder({ onFormCreated, formId, initialTitle = "", 
         onFormUpdated(formId);
       } else {
         const data = await createForm({ title: formTitle || "Untitled form", fields });
-        const id = data.form_id ?? data.formId;
+        const id =
+          data?.form_id ??
+          data?.formId ??
+          (typeof data?.body === "string" ? (() => {
+            try {
+              const b = JSON.parse(data.body);
+              return b?.form_id ?? b?.formId;
+            } catch {
+              return undefined;
+            }
+          })() : undefined);
         if (!id) {
-          setError("Invalid response: missing form id");
+          const msg = data?.message || data?.error
+            ? `${data.message || data.error}`
+            : "Invalid response: missing form id";
+          setError(msg);
           return;
         }
         onFormCreated(id, fields);

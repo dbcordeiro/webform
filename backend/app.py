@@ -29,7 +29,7 @@ def _normalize_path(path: str) -> str:
     """Strip API Gateway stage prefix if present (e.g. /prod/forms -> /forms)."""
     if path.startswith("/") and path.count("/") > 1:
         parts = path.strip("/").split("/")
-        if parts[0] in ("prod", "dev", "stage", "v1"):
+        if parts[0] in ("prod", "dev", "stage", "v1", "default"):
             return "/" + "/".join(parts[1:])
     return path
 
@@ -112,19 +112,6 @@ def lambda_handler(event, context) -> dict:
                     "message": str(db_e)[:500]
                 })
             return response(201, {"form_id": form_id})
-
-        if method == "POST" and path.startswith("/submit/"):
-            form_id = path.rstrip("/").split("/")[-1]
-            body = json.loads(body_str)
-
-            responses_table.put_item(
-                Item={
-                    "form_id": form_id,
-                    "response_id": str(uuid.uuid4()),
-                    "answers": body
-                }
-            )
-            return response(201, {"status": "submitted"})
 
         if method == "GET" and path.startswith("/forms/") and path != "/forms":
             parts = path.rstrip("/").split("/")
@@ -225,10 +212,8 @@ def lambda_handler(event, context) -> dict:
             except Exception as db_e:
                 return response(200, {"ok": False, "error": type(db_e).__name__, "message": str(db_e)[:500]})
             return response(200, {"status": "updated", "response_id": response_id})
-</think>
-Checking responses table structure: it may use only `form_id` as the partition key. Inspecting the backend's response handling:
-<｜tool▁calls▁begin｜><｜tool▁call▁begin｜>
-Read
+
+        return response(404, {"error": "Not found", "path": path, "method": method})
 
     except Exception as e:
         # Return 200 so API Gateway doesn't replace body with generic "Internal Server Error"
