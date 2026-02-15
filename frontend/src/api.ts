@@ -91,7 +91,7 @@ async function updateForm(formId: string, payload: { title?: string; fields: any
 
 async function getResponse(formId: string, responseId: string, editToken: string) {
   const base = ensureApiUrl();
-  const res = await fetch(`${base}/forms/${formId}/responses/${responseId}?token=${encodeURIComponent(editToken)}`);
+  const res = await fetch(`${base}/forms/${formId}/response/${responseId}?token=${encodeURIComponent(editToken)}`);
 
   if (!res.ok) {
     const msg = await getErrorMessage(res, "Failed to load response");
@@ -103,7 +103,7 @@ async function getResponse(formId: string, responseId: string, editToken: string
 
 async function updateResponse(formId: string, responseId: string, editToken: string, answers: Record<string, string | number>) {
   const base = ensureApiUrl();
-  const res = await fetch(`${base}/forms/${formId}/responses/${responseId}`, {
+  const res = await fetch(`${base}/forms/${formId}/response/${responseId}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ edit_token: editToken, answers })

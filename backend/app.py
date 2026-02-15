@@ -1,11 +1,12 @@
 import json
 import os
 import uuid
+from urllib.parse import parse_qs
 import boto3
 
 # Table names from env (validated in handler to avoid crash at import)
 FORMS_TABLE_NAME = os.environ.get("FORMS_TABLE")
-RESPONSES_TABLE_NAME = os.environ.get("RESPONSE_TABLE")
+RESPONSES_TABLE_NAME = os.environ.get("RESPONSES_TABLE")
 
 def _headers():
     return {
@@ -67,6 +68,21 @@ def _parse_event(event: dict) -> tuple[str, str, str]:
     if not isinstance(body, str):
         body = "{}"
     return method, path, body
+
+
+def _get_query_params(event: dict) -> dict:
+    """Get query string params from event (REST API, HTTP API v2, or rawQueryString)."""
+    qs = event.get("queryStringParameters") or event.get("queryParameters")
+    if isinstance(qs, dict):
+        return qs
+    raw = event.get("rawQueryString") or ""
+    if not raw:
+        return {}
+    try:
+        parsed = parse_qs(raw, keep_blank_values=True)
+        return {k: (v[0] if v else "") for k, v in parsed.items()}
+    except Exception:
+        return {}
 
 
 def lambda_handler(event, context) -> dict:
@@ -169,12 +185,12 @@ def lambda_handler(event, context) -> dict:
                 return response(200, {"ok": False, "error": type(db_e).__name__, "message": str(db_e)[:500]})
             return response(201, {"status": "submitted", "response_id": response_id, "edit_token": edit_token})
 
-        if method == "GET" and path.startswith("/forms/") and "/responses/" in path:
+        if method == "GET" and path.startswith("/forms/") and ("/responses/" in path or "/response/" in path):
             parts = [p for p in path.split("/") if p]
-            if len(parts) != 4 or parts[0] != "forms" or parts[2] != "responses":
+            if len(parts) != 4 or parts[0] != "forms" or parts[2] not in ("responses", "response"):
                 return response(404, {"error": "Not found"})
             form_id, response_id = parts[1], parts[3]
-            qs = event.get("queryStringParameters") or event.get("queryParameters") or {}
+            qs = _get_query_params(event)
             token = (qs.get("token") or "").strip()
             if not token:
                 return response(403, {"error": "Edit token required"})
@@ -184,9 +200,9 @@ def lambda_handler(event, context) -> dict:
                 return response(404, {"error": "Response not found or invalid token"})
             return response(200, {"form_id": form_id, "answers": item["answers"], "response_id": response_id})
 
-        if method == "PUT" and path.startswith("/forms/") and "/responses/" in path:
+        if method == "PUT" and path.startswith("/forms/") and ("/responses/" in path or "/response/" in path):
             parts = [p for p in path.split("/") if p]
-            if len(parts) != 4 or parts[0] != "forms" or parts[2] != "responses":
+            if len(parts) != 4 or parts[0] != "forms" or parts[2] not in ("responses", "response"):
                 return response(404, {"error": "Not found"})
             form_id, response_id = parts[1], parts[3]
             try:

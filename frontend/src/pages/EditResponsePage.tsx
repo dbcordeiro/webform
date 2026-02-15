@@ -25,7 +25,7 @@ export default function EditResponsePage() {
         setFields(formData.fields ?? []);
         setInitialValues((responseData.answers as Record<string, string | number>) ?? {});
       })
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load"))
+      .catch((err) => setError(err instanceof Error ? err.message : "Load failed"))
       .finally(() => setLoading(false));
   }, [formId, responseId, token]);
 
