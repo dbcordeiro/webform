@@ -21,6 +21,7 @@ export default function App() {
           <Route path="/f/:id" element={<ShortFormRedirect />} />
           <Route path="/forms/:id" element={<FormRendererPage />} />
           <Route path="/forms/:id/response/:responseId/edit" element={<EditResponsePage />} />
+          <Route path="/forms/:id/response/:responseId/edit/" element={<EditResponsePage />} />
         </Routes>
       </Layout>
     </BrowserRouter>
